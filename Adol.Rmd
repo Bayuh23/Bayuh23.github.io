@@ -1,0 +1,1521 @@
+---
+title: "Untitled"
+output: html_document
+date: "2024-04-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(haven)
+pri <-read_dta("E:/marge prior.dta")
+dat <-read_dta("E:/marge data.dta")
+```
+
+# analys the following
+# for trend using COR connect with stan file
+```{r}
+# this comand must be move to stan file as file name marr.stan
+data {
+  int N;
+   int coh18[N];
+  int year[N];
+}
+parameters {
+  real alpha;
+  real beta;
+}
+model {
+  for(i in 1:N) {
+    coh18[i] ~ bernoulli_logit(alpha + beta*year[i]);
+  }
+  alpha ~ normal(0,1);
+  beta ~ normal(0,1);
+}
+```
+
+
+```{r this code must be move to r Script}
+## COR for trend analysis use every country individually and every year compered to the oldest year.
+# the oldest year coded as 0 and all others coded as 1 then every year separetly analysis with tho oldest year
+#the following show the  Bangladish 1994 compared to 1997
+# call the data "All marge data"
+names(bangladish_marge)
+dat<-select(bangladish_marge, birth15, birth19, coh15, coh18, ea, year, v012, v005)
+dat=data.frame(dat, year2=dat$year)
+table(dat$v012)
+table(dat$year2)
+dat$ea[dat$coh18==9]<-NA
+dat$coh15[dat$coh15==9]<-NA
+dat$coh18[dat$coh18==9]<-NA
+dat$year2[dat$year2==1994]<-0
+dat$year2[dat$year2==1997]<-1
+dat$year2[dat$year2==2000]<-1
+dat$year2[dat$year2==2004]<-1
+dat$year2[dat$year2==2007]<-1
+dat$year2[dat$year2==2011]<-1
+dat$year2[dat$year2==2014]<-1
+dat$year2[dat$year2==2018]<-1
+
+ea<-select(dat, ea, year, year2)
+coh18<-select(dat, coh18, year, year2)
+birth19<-select(dat, birth19, year, year2)
+
+ea<- na.omit(ea)
+coh18<-na.omit(coh18)
+birth19<-na.omit(birth19)
+
+#### coh18
+Y=select(coh18, coh18)
+X=select(coh18, year)
+N1=nrow(coh18)
+N1
+N=12784
+table(coh18$year2)
+coh181<- subset(coh18, year2==0, year==1997)
+data1<-list(N=N, Y=Y$coh181, X=X$year)
+fit<-stan('marr.stan', iter=1000, chains=4, data=data1)
+print(fit, probs=c(0.025, 0.5, 0.975))
+```
+
+```{r}
+# Pri indicates prior data and dat indicates likelihood data
+# call both prior and likelihood data
+#call from R
+library(readr)
+load("E:/marriage/Rcomand for maariag and dat/dat.RData")
+load("E:/marriage/Rcomand for maariag and dat/pri.RData")
+library(haven)   # call from stata
+pri <- read_dta("D:/bmanem/marriage/marriage/aa marge 15-19/aaa New marge prior.dta")
+dat <- read_dta("D:/bmanem/marriage/marriage/aa marge 15-19/aaa New marge data.dta")
+```
+
+```{r}
+library(haven)
+pri <-read_dta("D:/marriage/marriage/new/Rcomand for maariag and dat/aaa New marge prior.dta")
+dat <-read_dta("D:/marriage/marriage/new/Rcomand for maariag and dat/aaa New marge data.dta")
+```
+
+```{r}
+pri$country[ pri$country== "Tunsia"] <- "Tunisia"
+pri$country[ pri$country== "Gutamala"] <- "Guatemala"
+```
+
+# Prevalence
+
+## Country level
+### Liklihood
+
+```{r data for each variables suparetly, eval=FALSE, include=FALSE}
+library(dplyr)
+lh_DC_bi15<-select(dat, birth15, country)
+lh_DC_bi15<-na.omit(lh_DC_bi15)
+lh_DC_bi19<-select(dat, birth19, country)
+lh_DC_bi19<-na.omit(lh_DC_bi19)
+lh_DC_coh15<-select(dat, coh15, country)
+lh_DC_coh15<-na.omit(lh_DC_coh15)
+lh_DC_coh18<-select(dat, coh18, country)
+lh_DC_coh18<-na.omit(lh_DC_coh18)
+lh_DC_ea<-select(dat, ea, country)
+lh_DC_ea<-na.omit(lh_DC_ea)
+reg<-select(dat, country)
+```
+
+```{r conver charachter to numeric}
+attr(lh_DC_bi15$birth15, which = "class") <- NULL
+attr(lh_DC_bi19$birth19, which = "class") <- NULL
+```
+
+```{r number of cases and number of samples in each variable, eval=FALSE, include=FALSE}
+# nC= number of cases, NC= number of samples
+lh_NC_bi15<- aggregate(lh_DC_bi15$country, by=list(lh_DC_bi15$country), FUN=length)
+lh_nC_bi15<- aggregate(lh_DC_bi15$birth15, by=list(lh_DC_bi15$country), FUN=sum)
+lh_NC_bi19<- aggregate(lh_DC_bi19$country, by=list(lh_DC_bi19$country), FUN=length)
+lh_nC_bi19<- aggregate(lh_DC_bi19$birth19, by=list(lh_DC_bi19$country), FUN=sum)
+lh_NC_coh15<- aggregate(lh_DC_coh15$country, by=list(lh_DC_coh15$country), FUN=length)
+lh_nC_coh15<- aggregate(lh_DC_coh15$coh15, by=list(lh_DC_coh15$country), FUN=sum)
+lh_NC_coh18<- aggregate(lh_DC_coh18$country, by=list(lh_DC_coh18$country), FUN=length)
+lh_nC_coh18<- aggregate(lh_DC_coh18$coh18, by=list(lh_DC_coh18$country), FUN=sum)
+lh_NC_ea<- aggregate(lh_DC_ea$country, by=list(lh_DC_ea$country), FUN=length)
+lh_nC_ea<- aggregate(lh_DC_ea$ea, by=list(lh_DC_ea$country), FUN=sum)
+```
+
+```{r }
+reg<-reg[!duplicated(reg[c('country')]),]
+```
+
+```{r rename}
+lh_nC_bi15<-rename(lh_nC_bi15, Country=Group.1, lh_nC_bi15=x)
+lh_NC_bi15<-rename(lh_NC_bi15, Country=Group.1, lh_NC_bi15=x)
+lh_nC_bi19<-rename(lh_nC_bi19, Country=Group.1, lh_nC_bi19=x)
+lh_NC_bi19<-rename(lh_NC_bi19, Country=Group.1, lh_NC_bi19=x)
+lh_nC_coh15<-rename(lh_nC_coh15, Country=Group.1, lh_nC_coh15=x)
+lh_NC_coh15<-rename(lh_NC_coh15, Country=Group.1, lh_NC_coh15=x)
+lh_nC_coh18<-rename(lh_nC_coh18, Country=Group.1, lh_nC_coh18=x)
+lh_NC_coh18<-rename(lh_NC_coh18, Country=Group.1, lh_NC_coh18=x)
+lh_nC_ea<-rename(lh_nC_ea, Country=Group.1, lh_nC_ea=x)
+lh_NC_ea<-rename(lh_NC_ea, Country=Group.1, lh_NC_ea=x)
+reg<-rename(reg, Country=country)
+```
+
+```{r merge}
+lh_country = merge(lh_nC_bi15, lh_NC_bi15,  by="Country", all=TRUE)
+lh_country = merge(lh_country, lh_nC_bi19, by="Country", all=TRUE)
+lh_country = merge(lh_country, lh_NC_bi19, by="Country", all=TRUE)
+lh_country = merge(lh_country, lh_nC_coh15,  by="Country", all=TRUE)
+lh_country = merge(lh_country, lh_NC_coh15, by="Country", all=TRUE)
+lh_country = merge(lh_country, lh_nC_coh18, by="Country", all=TRUE)
+lh_country = merge(lh_country, lh_NC_coh18, by="Country", all=TRUE)
+lh_country = merge(lh_country, lh_nC_ea, by="Country", all=TRUE)
+lh_country = merge(lh_country, lh_NC_ea, by="Country", all=TRUE)
+lh_country = merge(lh_country, reg, by="Country", all=TRUE)
+```
+
+## Prior
+
+```{r pria for each variables suparetly, eval=FALSE, include=FALSE}
+library(dplyr)
+pri_DC_bi15<-select(pri, birth15, country)
+pri_DC_bi15<-na.omit(pri_DC_bi15)
+pri_DC_bi19<-select(pri, birth19, country)
+pri_DC_bi19<-na.omit(pri_DC_bi19)
+pri_DC_coh15<-select(pri, coh15, country)
+pri_DC_coh15<-na.omit(pri_DC_coh15)
+pri_DC_coh18<-select(pri, coh18, country)
+pri_DC_coh18<-na.omit(pri_DC_coh18)
+pri_DC_ea<-select(pri, ea, country)
+pri_DC_ea<-na.omit(pri_DC_ea)
+```
+
+```{r conver charachter to numeric}
+attr(pri_DC_bi15$birth15, which = "class") <- NULL
+attr(pri_DC_bi19$birth19, which = "class") <- NULL
+```
+
+```{r number of cases and number of samples in each variable, eval=FALSE, include=FALSE}
+# nC= number of cases, NC= number of samples
+pri_NC_bi15<- aggregate(pri_DC_bi15$country, by=list(pri_DC_bi15$country), FUN=length)
+pri_nC_bi15<- aggregate(pri_DC_bi15$birth15, by=list(pri_DC_bi15$country), FUN=sum)
+pri_NC_bi19<- aggregate(pri_DC_bi19$country, by=list(pri_DC_bi19$country), FUN=length)
+pri_nC_bi19<- aggregate(pri_DC_bi19$birth19, by=list(pri_DC_bi19$country), FUN=sum)
+pri_NC_coh15<- aggregate(pri_DC_coh15$country, by=list(pri_DC_coh15$country), FUN=length)
+pri_nC_coh15<- aggregate(pri_DC_coh15$coh15, by=list(pri_DC_coh15$country), FUN=sum)
+pri_NC_coh18<- aggregate(pri_DC_coh18$country, by=list(pri_DC_coh18$country), FUN=length)
+pri_nC_coh18<- aggregate(pri_DC_coh18$coh18, by=list(pri_DC_coh18$country), FUN=sum)
+pri_NC_ea<- aggregate(pri_DC_ea$country, by=list(pri_DC_ea$country), FUN=length)
+pri_nC_ea<- aggregate(pri_DC_ea$ea, by=list(pri_DC_ea$country), FUN=sum)
+```
+
+```{r rename}
+pri_nC_bi15<-rename(pri_nC_bi15, Country=Group.1, pri_nC_bi15=x)
+pri_NC_bi15<-rename(pri_NC_bi15, Country=Group.1, pri_NC_bi15=x)
+pri_nC_bi19<-rename(pri_nC_bi19, Country=Group.1, pri_nC_bi19=x)
+pri_NC_bi19<-rename(pri_NC_bi19, Country=Group.1, pri_NC_bi19=x)
+pri_nC_coh15<-rename(pri_nC_coh15, Country=Group.1, pri_nC_coh15=x)
+pri_NC_coh15<-rename(pri_NC_coh15, Country=Group.1, pri_NC_coh15=x)
+pri_nC_coh18<-rename(pri_nC_coh18, Country=Group.1, pri_nC_coh18=x)
+pri_NC_coh18<-rename(pri_NC_coh18, Country=Group.1, pri_NC_coh18=x)
+pri_nC_ea<-rename(pri_nC_ea, Country=Group.1, pri_nC_ea=x)
+pri_NC_ea<-rename(pri_NC_ea, Country=Group.1, pri_NC_ea=x)
+```
+
+```{r marge all prior}
+pri_country = merge(pri_nC_bi15, pri_NC_bi15,  by="Country", all=TRUE)
+pri_country = merge(pri_country, pri_nC_bi19, by="Country", all=TRUE)
+pri_country = merge(pri_country, pri_NC_bi19, by="Country", all=TRUE)
+pri_country = merge(pri_country, pri_nC_coh15,  by="Country", all=TRUE)
+pri_country = merge(pri_country, pri_NC_coh15, by="Country", all=TRUE)
+pri_country = merge(pri_country, pri_nC_coh18, by="Country", all=TRUE)
+pri_country = merge(pri_country, pri_NC_coh18, by="Country", all=TRUE)
+pri_country = merge(pri_country, pri_nC_ea, by="Country", all=TRUE)
+pri_country = merge(pri_country, pri_NC_ea, by="Country", all=TRUE)
+```
+
+```{r merge prior and data}
+Country<-merge(lh_country, pri_country, by="Country", all=TRUE)
+```
+
+```{r missing}
+missing_rows1<-!complete.cases(Country$pri_nC_bi15)
+missing_rows2<-!complete.cases(Country$pri_NC_bi15)
+missing_rows3<-!complete.cases(Country$pri_nC_bi19)
+missing_rows4<-!complete.cases(Country$pri_NC_bi19)
+missing_rows5<-!complete.cases(Country$pri_nC_coh15)
+missing_rows6<-!complete.cases(Country$pri_NC_coh15)
+missing_rows7<-!complete.cases(Country$pri_nC_coh18)
+missing_rows8<-!complete.cases(Country$pri_NC_coh18)
+missing_rows9<-!complete.cases(Country$pri_nC_ea)
+missing_rows10<-!complete.cases(Country$pri_NC_ea)
+```
+
+```{r missing}
+Country$pri_nC_bi15[missing_rows1]<-0.5
+Country$pri_NC_bi15[missing_rows2]<-1
+Country$pri_nC_bi19[missing_rows3]<-0.5
+Country$pri_NC_bi19[missing_rows4]<-1
+Country$pri_nC_coh15[missing_rows5]<-0.5
+Country$pri_NC_coh15[missing_rows6]<-1
+Country$pri_nC_coh18[missing_rows7]<-0.5
+Country$pri_NC_coh18[missing_rows8]<-1
+Country$pri_nC_ea[missing_rows9]<-0.5
+Country$pri_NC_ea[missing_rows10]<-1
+```
+
+```{r number of controls or did not had case for prior}
+Country$pri_nnC_bi15<-Country$pri_NC_bi15-Country$pri_nC_bi15
+Country$pri_nnC_bi19<-Country$pri_NC_bi19-Country$pri_nC_bi19
+Country$pri_nnC_coh15<-Country$pri_NC_coh15-Country$pri_nC_coh15
+Country$pri_nnC_coh18<-Country$pri_NC_coh18-Country$pri_nC_coh18
+Country$pri_nnC_ea<-Country$pri_NC_ea-Country$pri_nC_ea
+```
+
+```{r number of not cases or control for data}
+Country$lh_nnC_bi15<-Country$lh_NC_bi15-Country$lh_nC_bi15
+Country$lh_nnC_bi19<-Country$lh_NC_bi19-Country$lh_nC_bi19
+Country$lh_nnC_coh15<-Country$lh_NC_coh15-Country$lh_nC_coh15
+Country$lh_nnC_coh18<-Country$lh_NC_coh18-Country$lh_nC_coh18
+Country$lh_nnC_ea<-Country$lh_NC_ea-Country$lh_nC_ea
+```
+
+
+```{r each case separetly select and postrior calculate}
+library(dplyr)
+bi19<-select(Country, Country, lh_nC_bi19, pri_nC_bi19, lh_nnC_bi19, pri_nnC_bi19)
+bi19<-na.omit(bi19)
+
+bi19$lower<-qbeta(0.025, bi19$lh_nC_bi19+bi19$pri_nC_bi19, bi19$lh_nnC_bi19+bi19$pri_nnC_bi19)
+bi19$uper<-qbeta(0.975, bi19$lh_nC_bi19+bi19$pri_nC_bi19, bi19$lh_nnC_bi19+bi19$pri_nnC_bi19)
+bi19$median<-qbeta(0.5, bi19$lh_nC_bi19+bi19$pri_nC_bi19, bi19$lh_nnC_bi19+bi19$pri_nnC_bi19)
+bi19<-rename(bi19, lh_case=lh_nC_bi19, lh_contr=lh_nnC_bi19, prio_case=pri_nC_bi19, prio_contr=pri_nnC_bi19)
+bi19$Case<-"Birth19"
+
+bi15<-select(Country, Country,lh_nC_bi15, pri_nC_bi15, lh_nnC_bi15, pri_nnC_bi15)
+bi15<-na.omit(bi15)
+
+bi15$lower<-qbeta(0.025, bi15$lh_nC_bi15+bi15$pri_nC_bi15, bi15$lh_nnC_bi15+bi15$pri_nnC_bi15)
+bi15$uper<-qbeta(0.975, bi15$lh_nC_bi15+bi15$pri_nC_bi15, bi15$lh_nnC_bi15+bi15$pri_nnC_bi15)
+bi15$median<-qbeta(0.5, bi15$lh_nC_bi15+bi15$pri_nC_bi15, bi15$lh_nnC_bi15+bi15$pri_nnC_bi15)
+bi15<-rename(bi15, lh_case=lh_nC_bi15, lh_contr=lh_nnC_bi15, prio_case=pri_nC_bi15, prio_contr=pri_nnC_bi15)
+bi15$Case<-"Birth15"
+
+coh15<-select(Country, Country, lh_nC_coh15, pri_nC_coh15, lh_nnC_coh15, pri_nnC_coh15)
+coh15<-na.omit(coh15)
+
+coh15$lower<-qbeta(0.025, coh15$lh_nC_coh15+coh15$pri_nC_coh15, coh15$lh_nnC_coh15+coh15$pri_nnC_coh15)
+coh15$uper<-qbeta(0.975, coh15$lh_nC_coh15+coh15$pri_nC_coh15, coh15$lh_nnC_coh15+coh15$pri_nnC_coh15)
+coh15$median<-qbeta(0.5, coh15$lh_nC_coh15+coh15$pri_nC_coh15, coh15$lh_nnC_coh15+coh15$pri_nnC_coh15)
+coh15$Case<-"Coh15"
+coh15<-rename(coh15, lh_case=lh_nC_coh15, lh_contr=lh_nnC_coh15, prio_case=pri_nC_coh15, prio_contr=pri_nnC_coh15)
+
+coh18<-select(Country, Country, lh_nC_coh18, pri_nC_coh18, lh_nnC_coh18, pri_nnC_coh18)
+coh18<-na.omit(coh18)
+
+coh18$lower<-qbeta(0.025, coh18$lh_nC_coh18+coh18$pri_nC_coh18, coh18$lh_nnC_coh18+coh18$pri_nnC_coh18)
+coh18$uper<-qbeta(0.975, coh18$lh_nC_coh18+coh18$pri_nC_coh18, coh18$lh_nnC_coh18+coh18$pri_nnC_coh18)
+coh18$median<-qbeta(0.5, coh18$lh_nC_coh18+coh18$pri_nC_coh18, coh18$lh_nnC_coh18+coh18$pri_nnC_coh18)
+coh18$Case<-"Coh18"
+coh18<-rename(coh18, lh_case=lh_nC_coh18, lh_contr=lh_nnC_coh18, prio_case=pri_nC_coh18, prio_contr=pri_nnC_coh18)
+
+ea<-select(Country, Country,lh_nC_ea, pri_nC_ea, lh_nnC_ea, pri_nnC_ea)
+ea<-na.omit(ea)
+
+ea$lower<-qbeta(0.025, ea$lh_nC_ea+ea$pri_nC_ea, ea$lh_nnC_ea+ea$pri_nnC_ea)
+ea$uper<-qbeta(0.975, ea$lh_nC_ea+ea$pri_nC_ea, ea$lh_nnC_ea+ea$pri_nnC_ea)
+ea$median<-qbeta(0.5, ea$lh_nC_ea+ea$pri_nC_ea, ea$lh_nnC_ea+ea$pri_nnC_ea)
+ea$Case<-"ea"
+ea<-rename(ea, lh_case=lh_nC_ea, lh_contr=lh_nnC_ea, prio_case=pri_nC_ea, prio_contr=pri_nnC_ea)
+```
+
+```{r marge append}
+Country_postr=rbind(bi15, bi19, coh15, coh18, ea)
+```
+
+```{r change to %}
+# the final result of country level is "Country_postr"  ea for education, coh for married 
+names(Country_postr)
+Country_postr$Postrior=Country_postr$Postrior*100
+Country_postr$lower=Country_postr$lower*100
+Country_postr$uper=Country_postr$uper*100
+Country_postr$median=Country_postr$median*100
+```
+
+```{r}
+#Country_postr$uper[missing_rows1]<-1
+Country_postr$Post_staMed<-Country_postr$median/(Country_postr$uper-Country_postr$lower)
+```
+
+```{r}
+Country_postr$se<-(Country_postr$uper-Country_postr$lower)/3.92
+```
+
+
+```{r merge prior and data}
+Country_postr<-merge(Country_postr, country_and_global_region, by="Country", all=TRUE)
+```
+
+```{r}
+names(Country_postr)
+```
+
+
+```{r}
+##Country_postr$se<-(Country_postr$uper-Country_postr$lower)/3.92
+```
+
+
+```{r}
+Country_postr$Sig_Noi=Country_postr$median/Country_postr$se
+Country_postr$Sig_Noi[is.nan(Country_postr$Sig_Noi)]<-0
+```
+
+```{r}
+Country_postr$Sig_Noi[Country_postr$Sig_Noi>65]<-65
+```
+
+```{r}
+# 0 in all cases replace by 0
+Country_postr$Post_staMed[is.nan(Country_postr$Post_staMed)]<-0
+```
+
+£3£3333333 not chaise it is must
+```{r  export to csv}
+write.csv(Country_postr, "D:/marriage/marriage/new/Rcomand for maariag and dat/new/country_pre1.csv", row.names=FALSE)
+```
+
+```{r postrio error bar graph}
+ggplot(birth, aes(x=Postrior, y=reorder(Country, Postrior), color=glo_reg))+ 
+geom_point(stat="identity")+ xlab("Unstandardized prevalence with 95% CrI")+
+  ylab(" ")+ geom_errorbar(aes(y=Country, xmin=lower, xmax=uper))+ theme_grey(base_size =7)+ theme(legend.position=c(0.81, 0.15))
+```
+
+```{r lolipop bar graph}
+ggplot(birth, aes(x=Post_stand, y=reorder(Country, Post_stand), color=glo_reg, col=TRUE))+ 
+  geom_segment(aes(x=0,y=Country, xend=Post_stand, yend=Country))+ xlab(" ")+
+  ylab(" ")+ 
+  geom_point(stat="identity")+ theme_grey(base_size =7)+ theme(legend.position=c(0.45, 0.14))
+```
+
+
+# Region level
+## Likelihood
+
+```{r data for each variables suparetly, eval=FALSE, iNRlude=FALSE}
+library(dplyr)
+lh_DR_bi15<-select(dat, birth15, reg, country)
+lh_DR_bi15<-na.omit(lh_DR_bi15)
+lh_DR_bi19<-select(dat, birth19, reg, country)
+lh_DR_bi19<-na.omit(lh_DR_bi19)
+lh_DR_coh15<-select(dat, coh15, reg, county)
+lh_DR_coh15<-na.omit(lh_DR_coh15)
+lh_DR_coh18<-select(dat, coh18, reg, country)
+lh_DR_coh18<-na.omit(lh_DR_coh18)
+lh_DR_ea<-select(dat, ea, reg, country)
+lh_DR_ea<-na.omit(lh_DR_ea)
+reg<-select(dat, country, reg)     # region for reg
+```
+
+```{r convert charachter to numeric}
+attr(lh_DR_bi15$birth15, which = "class") <- NULL
+attr(lh_DR_bi19$birth19, which = "class") <- NULL
+```
+
+```{r number of cases and number of samples in each variable, eval=FALSE, iNRlude=FALSE}
+# NR= number of cases, NR= number of samples
+lh_NR_bi15<- aggregate(lh_DR_bi15$reg, by=list(lh_DR_bi15$Cou_reg), FUN=length)
+lh_nR_bi15<- aggregate(lh_DR_bi15$birth15, by=list(lh_DR_bi15$Cou_reg), FUN=sum)
+lh_NR_bi19<- aggregate(lh_DR_bi19$reg, by=list(lh_DR_bi19$Cou_reg), FUN=length)
+lh_nR_bi19<- aggregate(lh_DR_bi19$birth19, by=list(lh_DR_bi19$Cou_reg), FUN=sum)
+lh_NR_coh15<- aggregate(lh_DR_coh15$reg, by=list(lh_DR_coh15$Cou_reg), FUN=length)
+lh_nR_coh15<- aggregate(lh_DR_coh15$coh15, by=list(lh_DR_coh15$Cou_reg), FUN=sum)
+lh_NR_coh18<- aggregate(lh_DR_coh18$reg, by=list(lh_DR_coh18$Cou_reg), FUN=length)
+lh_nR_coh18<- aggregate(lh_DR_coh18$coh18, by=list(lh_DR_coh18$Cou_reg), FUN=sum)
+lh_NR_ea<- aggregate(lh_DR_ea$reg, by=list(lh_DR_ea$Cou_reg), FUN=length)
+lh_nR_ea<- aggregate(lh_DR_ea$ea, by=list(lh_DR_ea$Cou_reg), FUN=sum)
+```
+
+```{r rename}
+lh_nR_bi15<-rename(lh_nR_bi15, Region=Group.1, lh_nR_bi15=x)
+lh_NR_bi15<-rename(lh_NR_bi15, Region=Group.1, lh_NR_bi15=x)
+lh_nR_bi19<-rename(lh_nR_bi19, Region=Group.1, lh_nR_bi19=x)
+lh_NR_bi19<-rename(lh_NR_bi19, Region=Group.1, lh_NR_bi19=x)
+lh_nR_coh15<-rename(lh_nR_coh15, Region=Group.1, lh_nR_coh15=x)
+lh_NR_coh15<-rename(lh_NR_coh15, Region=Group.1, lh_NR_coh15=x)
+lh_nR_coh18<-rename(lh_nR_coh18, Region=Group.1, lh_nR_coh18=x)
+lh_NR_coh18<-rename(lh_NR_coh18, Region=Group.1, lh_NR_coh18=x)
+lh_nR_ea<-rename(lh_nR_ea, Region=Group.1, lh_nR_ea=x)
+lh_NR_ea<-rename(lh_NR_ea, Region=Group.1, lh_NR_ea=x)
+# reg<-rename(reg, Country=country)
+```
+
+```{r eval=FALSE, include=FALSE}
+coount<-dat[!duplicated(dat[c('Cou_reg')]),]
+country1<-select(coount, country, Cou_reg)
+country1<-rename(country1, Region=Cou_reg)
+```
+
+```{r marge data of all variable}
+lh_region = merge(lh_nR_bi15, lh_NR_bi15,  by="Region", all=TRUE)
+lh_region = merge(lh_region, lh_nR_bi19, by="Region", all=TRUE)
+lh_region = merge(lh_region, lh_NR_bi19, by="Region", all=TRUE)
+lh_region = merge(lh_region, lh_nR_coh15,  by="Region", all=TRUE)
+lh_region = merge(lh_region, lh_NR_coh15, by="Region", all=TRUE)
+lh_region = merge(lh_region, lh_nR_coh18, by="Region", all=TRUE)
+lh_region = merge(lh_region, lh_NR_coh18, by="Region", all=TRUE)
+lh_region = merge(lh_region, lh_nR_ea, by="Region", all=TRUE)
+lh_region = merge(lh_region, lh_NR_ea, by="Region", all=TRUE)
+lh_region = merge(lh_region, country1, by="Region", all=TRUE)
+```
+
+## Prior
+
+```{r prior for each variables suparetly}
+library(dplyr)
+pri_DR_bi15<-select(pri, birth15, reg, country, Cou_reg)
+pri_DR_bi15<-na.omit(pri_DR_bi15)
+pri_DR_bi19<-select(pri, birth19, reg, country, Cou_reg)
+pri_DR_bi19<-na.omit(pri_DR_bi19)
+pri_DR_coh15<-select(pri, coh15, reg, country, Cou_reg)
+pri_DR_coh15<-na.omit(pri_DR_coh15)
+pri_DR_coh18<-select(pri, coh18, reg, country, Cou_reg)
+pri_DR_coh18<-na.omit(pri_DR_coh18)
+pri_DR_ea<-select(pri, ea, reg,  country, Cou_reg)
+pri_DR_ea<-na.omit(pri_DR_ea)
+```
+
+```{r conver charachter to numeric}
+attr(pri_DR_bi15$birth15, which = "class") <- NULL
+attr(pri_DR_bi19$birth19, which = "class") <- NULL
+```
+
+```{r number of cases and number of samples in each variable, eval=FALSE, iNRlude=FALSE}
+# NR= number of cases, NR= number of samples
+pri_NR_bi15<- aggregate(pri_DR_bi15$reg, by=list(pri_DR_bi15$Cou_reg), FUN=length)
+pri_nR_bi15<- aggregate(pri_DR_bi15$birth15, by=list(pri_DR_bi15$Cou_reg), FUN=sum)
+pri_NR_bi19<- aggregate(pri_DR_bi19$reg, by=list(pri_DR_bi19$Cou_reg), FUN=length)
+pri_nR_bi19<- aggregate(pri_DR_bi19$birth19, by=list(pri_DR_bi19$Cou_reg), FUN=sum)
+pri_NR_coh15<- aggregate(pri_DR_coh15$reg, by=list(pri_DR_coh15$Cou_reg), FUN=length)
+pri_nR_coh15<- aggregate(pri_DR_coh15$coh15, by=list(pri_DR_coh15$Cou_reg), FUN=sum)
+pri_NR_coh18<- aggregate(pri_DR_coh18$reg, by=list(pri_DR_coh18$Cou_reg), FUN=length)
+pri_nR_coh18<- aggregate(pri_DR_coh18$coh18, by=list(pri_DR_coh18$Cou_reg), FUN=sum)
+pri_NR_ea<- aggregate(pri_DR_ea$reg, by=list(pri_DR_ea$Cou_reg), FUN=length)
+pri_nR_ea<- aggregate(pri_DR_ea$ea, by=list(pri_DR_ea$Cou_reg), FUN=sum)
+```
+
+```{r rename all x variable into informative}
+pri_nR_bi15<-rename(pri_nR_bi15, Region=Group.1, pri_nR_bi15=x)
+pri_NR_bi15<-rename(pri_NR_bi15, Region=Group.1, pri_NR_bi15=x)
+pri_nR_bi19<-rename(pri_nR_bi19, Region=Group.1, pri_nR_bi19=x)
+pri_NR_bi19<-rename(pri_NR_bi19, Region=Group.1, pri_NR_bi19=x)
+pri_nR_coh15<-rename(pri_nR_coh15, Region=Group.1, pri_nR_coh15=x)
+pri_NR_coh15<-rename(pri_NR_coh15, Region=Group.1, pri_NR_coh15=x)
+pri_nR_coh18<-rename(pri_nR_coh18, Region=Group.1, pri_nR_coh18=x)
+pri_NR_coh18<-rename(pri_NR_coh18, Region=Group.1, pri_NR_coh18=x)
+pri_nR_ea<-rename(pri_nR_ea, Region=Group.1, pri_nR_ea=x)
+pri_NR_ea<-rename(pri_NR_ea, Region=Group.1, pri_NR_ea=x)
+```
+
+```{r marge all prior}
+pri_Region = merge(pri_nR_bi15, pri_NR_bi15,  by="Region", all=TRUE)
+pri_Region = merge(pri_Region, pri_nR_bi19, by="Region", all=TRUE)
+pri_Region = merge(pri_Region, pri_NR_bi19, by="Region", all=TRUE)
+pri_Region = merge(pri_Region, pri_nR_coh15,  by="Region", all=TRUE)
+pri_Region = merge(pri_Region, pri_NR_coh15, by="Region", all=TRUE)
+pri_Region = merge(pri_Region, pri_nR_coh18, by="Region", all=TRUE)
+pri_Region = merge(pri_Region, pri_NR_coh18, by="Region", all=TRUE)
+pri_Region = merge(pri_Region, pri_nR_ea, by="Region", all=TRUE)
+pri_Region = merge(pri_Region, pri_NR_ea, by="Region", all=TRUE)
+```
+
+```{r marge prior and data}
+Region<-merge(lh_region, pri_Region, by="Region", all=TRUE)
+```
+
+```{r Missing}
+missing_rows11<-!complete.cases(Region$pri_nR_bi15)
+missing_rows21<-!complete.cases(Region$pri_NR_bi15)
+missing_rows31<-!complete.cases(Region$pri_nR_bi19)
+missing_rows41<-!complete.cases(Region$pri_NR_bi19)
+missing_rows51<-!complete.cases(Region$pri_nR_coh15)
+missing_rows61<-!complete.cases(Region$pri_NR_coh15) 
+missing_rows71<-!complete.cases(Region$pri_nR_coh18)
+missing_rows81<-!complete.cases(Region$pri_NR_coh18) 
+missing_rows91<-!complete.cases(Region$pri_nR_ea)
+missing_rows101<-!complete.cases(Region$pri_NR_ea)
+```
+
+```{r Missing}
+Region$pri_nR_bi15[missing_rows11]<-0.5
+Region$pri_NR_bi15[missing_rows21]<-1
+Region$pri_nR_bi19[missing_rows31]<-0.5
+Region$pri_NR_bi19[missing_rows41]<-1
+Region$pri_nR_coh15[missing_rows51]<-0.5
+Region$pri_NR_coh15[missing_rows61]<-1
+Region$pri_nR_coh18[missing_rows71]<-0.5
+Region$pri_NR_coh18[missing_rows81]<-1
+Region$pri_nR_ea[missing_rows91]<-0.5
+Region$pri_NR_ea[missing_rows101]<-1
+```
+
+```{r Number of Control prior}
+Region$pri_nnR_bi15<-Region$pri_NR_bi15-Region$pri_nR_bi15
+Region$pri_nnR_bi19<-Region$pri_NR_bi19-Region$pri_nR_bi19
+Region$pri_nnR_coh15<-Region$pri_NR_coh15-Region$pri_nR_coh15
+Region$pri_nnR_coh18<-Region$pri_NR_coh18-Region$pri_nR_coh18
+Region$pri_nnR_ea<-Region$pri_NR_ea-Region$pri_nR_ea
+```
+
+```{r number of control or free from the case likelihood}
+Region$lh_nnR_bi15<-Region$lh_NR_bi15-Region$lh_nR_bi15
+Region$lh_nnR_bi19<-Region$lh_NR_bi19-Region$lh_nR_bi19
+Region$lh_nnR_coh15<-Region$lh_NR_coh15-Region$lh_nR_coh15
+Region$lh_nnR_coh18<-Region$lh_NR_coh18-Region$lh_nR_coh18
+Region$lh_nnR_ea<-Region$lh_NR_ea-Region$lh_nR_ea
+```
+
+```{r each case separetly select and postrior calculate, eval=FALSE, include=FALSE}
+library(dplyr)
+rbi19<-select(Region, Region, lh_nR_bi19, pri_nR_bi19, lh_nnR_bi19, pri_nnR_bi19)
+rbi19<-na.omit(rbi19)
+
+rbi19$low_bi19<-qbeta(0.025, rbi19$lh_nR_bi19+rbi19$pri_nR_bi19, rbi19$lh_nnR_bi19+rbi19$pri_nnR_bi19)
+rbi19$uper_bi19<-qbeta(0.975, rbi19$lh_nR_bi19+rbi19$pri_nR_bi19, rbi19$lh_nnR_bi19+rbi19$pri_nnR_bi19)
+rbi19$median_bi19<-qbeta(0.5, rbi19$lh_nR_bi19+rbi19$pri_nR_bi19, rbi19$lh_nnR_bi19+rbi19$pri_nnR_bi19)
+rbi19$Post_Bir19=rbi19$Post_Bir19*100
+rbi19$uper_bi19=rbi19$uper_bi19*100
+rbi19$low_bi19=rbi19$low_bi19*100
+rbi19$median_bi19=rbi19$median_bi19*100
+
+rbi15<-select(Region, Region, lh_nR_bi15, pri_nR_bi15, lh_nnR_bi15, pri_nnR_bi15)
+rbi15<-na.omit(rbi15)
+rbi15$low_bi15<-qbeta(0.025, rbi15$lh_nR_bi15+rbi15$pri_nR_bi15, rbi15$lh_nnR_bi15+rbi15$pri_nnR_bi15)
+rbi15$uper_bi15<-qbeta(0.975, rbi15$lh_nR_bi15+rbi15$pri_nR_bi15, rbi15$lh_nnR_bi15+rbi15$pri_nnR_bi15)
+rbi15$median_bi15<-qbeta(0.5, rbi15$lh_nR_bi15+rbi15$pri_nR_bi15, rbi15$lh_nnR_bi15+rbi15$pri_nnR_bi15)
+rbi15$Post_Bir15=rbi15$Post_Bir15*100
+rbi15$uper_bi15=rbi15$uper_bi15*100
+rbi15$low_bi15=rbi15$low_bi15*100
+rbi15$median_bi15=rbi15$median_bi15*100
+
+
+rcoh15<-select(Region, Region, lh_nR_coh15, pri_nR_coh15, lh_nnR_coh15, pri_nnR_coh15)
+rcoh15<-na.omit(rcoh15)
+rcoh15$low_coh15<-qbeta(0.025, rcoh15$lh_nR_coh15+rcoh15$pri_nR_coh15, rcoh15$lh_nnR_coh15+rcoh15$pri_nnR_coh15)
+rcoh15$uper_coh15<-qbeta(0.975, rcoh15$lh_nR_coh15+rcoh15$pri_nR_coh15, rcoh15$lh_nnR_coh15+rcoh15$pri_nnR_coh15)
+rcoh15$median_coh15<-qbeta(0.5, rcoh15$lh_nR_coh15+rcoh15$pri_nR_coh15, rcoh15$lh_nnR_coh15+rcoh15$pri_nnR_coh15)
+rcoh15$Post_coh15=rcoh15$Post_coh15*100
+rcoh15$uper_coh15=rcoh15$uper_coh15*100
+rcoh15$low_coh15=rcoh15$low_coh15*100
+rcoh15$median_coh15=rcoh15$median_coh15*100
+
+
+rcoh18<-select(Region, Region, lh_nR_coh18, pri_nR_coh18, lh_nnR_coh18, pri_nnR_coh18)
+rcoh18<-na.omit(rcoh18)
+rcoh18$low_coh18<-qbeta(0.025, rcoh18$lh_nR_coh18+rcoh18$pri_nR_coh18, rcoh18$lh_nnR_coh18+rcoh18$pri_nnR_coh18)
+rcoh18$uper_coh18<-qbeta(0.975, rcoh18$lh_nR_coh18+rcoh18$pri_nR_coh18, rcoh18$lh_nnR_coh18+rcoh18$pri_nnR_coh18)
+rcoh18$median_coh18<-qbeta(0.5, rcoh18$lh_nR_coh18+rcoh18$pri_nR_coh18, rcoh18$lh_nnR_coh18+rcoh18$pri_nnR_coh18)
+rcoh18$Post_coh18=rcoh18$Post_coh18*100
+rcoh18$uper_coh18=rcoh18$uper_coh18*100
+rcoh18$low_coh18=rcoh18$low_coh18*100
+rcoh18$median_coh18=rcoh18$median_coh18*100
+
+rea<-select(Region, Region, lh_nR_ea, pri_nR_ea, lh_nnR_ea, pri_nnR_ea)
+rea<-na.omit(rea)
+rea$low_ea<-qbeta(0.025, rea$lh_nR_ea+rea$pri_nR_ea, rea$lh_nnR_ea+rea$pri_nnR_ea)
+rea$uper_ea<-qbeta(0.975, rea$lh_nR_ea+rea$pri_nR_ea, rea$lh_nnR_ea+rea$pri_nnR_ea)
+rea$median_ea<-qbeta(0.5, rea$lh_nR_ea+rea$pri_nR_ea, rea$lh_nnR_ea+rea$pri_nnR_ea)
+rea$Post_ea=rea$Post_ea*100
+rea$uper_ea=rea$uper_ea*100
+rea$low_ea=rea$low_ea*100
+rea$median_ea=rea$median_ea*100
+```
+
+```{r standard error}
+rbi15$se_rbi15<-(rbi15$uper_bi15-rbi15$low_bi15)/3.92
+rbi19$se_rbi19<-(rbi19$uper_bi19-rbi19$low_bi19)/3.92
+rcoh15$se_rcoh15<-(rcoh15$uper_coh15-rcoh15$low_coh15)/3.92
+rcoh18$se_rcoh18<-(rcoh18$uper_coh18-rcoh18$low_coh18)/3.92
+rea$se_rea<-(rea$uper_ea-rea$low_ea)/3.92
+```
+
+```{r}
+rbi15$Sig_bi15=rbi15$median_bi15/rbi15$se_rbi15
+rbi19$Sig_bi19=rbi19$median_bi19/rbi19$se_rbi19
+rcoh15$Sig_coh15=rcoh15$median_coh15/rcoh15$se_rcoh15
+rcoh18$Sig_coh18=rcoh18$median_coh18/rcoh18$se_rcoh18
+rea$Sig_ea=rea$median_ea/rea$se_rea
+```
+
+```{r marge all prior}
+pos_Region=rbi15
+pos_Region = merge(pos_Region, rbi19, by="Region", all=TRUE)
+pos_Region = merge(pos_Region, rcoh15, by="Region", all=TRUE)
+pos_Region = merge(pos_Region, rcoh18, by="Region", all=TRUE)
+pos_Region = merge(pos_Region, rea,  by="Region", all=TRUE)
+```
+
+```{r marge append}
+Region_postr=select(pos_Region, Post_Bir15, low_bi15, uper_bi15, Post_Bir19, low_bi19, uper_bi19, Post_coh15,low_coh15, uper_coh15, Post_coh18, low_coh18, uper_coh18, Post_ea, low_ea, uper_ea, median_ea)
+```
+
+
+```{r}
+write.csv(pos_Region, "D:/marriage/marriage/new/Rcomand for maariag and dat/new/region_P.csv", row.names=FALSE)
+```
+
+```{r}
+write.csv(EDU, "E:/ba/marriage/new/Rcomand for maariag and dat/region_EDU.csv", row.names=FALSE)
+write.csv(MARR, "E:/ba/marriage/new/Rcomand for maariag and dat/region_MARR.csv", row.names=FALSE)
+write.csv(BIRTH, "E:/ba/marriage/new/Rcomand for maariag and dat/region_BIRTH.csv", row.names=FALSE)
+```
+
+
+# map
+
+```{r}
+library(stats)
+library(maps)       # Provides functions that let us plot the maps
+#library(maptools)
+library(sp)
+library(spdep)
+library(spacetime)
+library(mapdata)    # Contains the hi-resolution points that mark out the counties
+#library(rgdal)
+library(sf)
+library(RColorBrewer)
+```
+
+```{r}
+birth<- st_read("D:/bmanem/shap file/global/WB_countries_Admin0_10m/WB_countries_Admin0_10m.shp")
+```
+
+
+```{r}
+glob<- st_read("D:/shap file/global/WB_countries_Admin0_10m/WB_countries_Admin0_10m.shp")
+```
+
+```{r}
+region<- st_read("D:/marriage/marriage/new/Rcomand for maariag and dat/marr/region shp/region shap.shp")
+```
+
+
+```{r  to plot the map}
+library(cartography)
+library(sf)
+library(tidyverse)
+plot(st_geometry(birth))
+choroLayer(x=birth, var="birth19", method="quantile", nclass=5)
+```
+
+```{r}
+library(sf)
+library(tidyverse)
+```
+
+
+
+```{r}
+library(ggthemes)
+ggplot(data=birth1)+ geom_sf(aes(fill=birth19), color="black")+
+  scale_fill_viridis_c(option="viridis", trans="sqrt")+
+  ggtitle(" ")+ theme(legend.position=c(0.22,0.3))+
+  theme(panel.background = element_rect(fill='white', size=1))+
+  scale_fill_continuous( na.value="white")
+```
+
+```{r color for bar or point plot manualy}
+colors<-c("4"="red", "8"="green", "12"="black")
+
+ggplot(data=birth1)+ geom_sf(aes(fill=birth19), color="black")+
+  scale_fill_viridis_c(option="viridis", trans="sqrt")+
+  scale_color_manual(values=colors)+
+  ggtitle(" ")+ theme(legend.position=c(0.22,0.3))+
+  theme(panel.background = element_rect(fill='white', size=1))+
+  scale_fill_continuous( low='blue',  high='red', na.value="white")
+```
+
+```{r}
+breaks=unique(quantile(birth$birth19, probs=seq(0,1, by=0.1)))
+birth$deciles=cut(birth$birth19, breaks=breaks, include.lowest = TRUE, include.highest = TRUE)
+colours=brewer.pal(name="RdYlGn", n=nlevels(birth$deciles))
+names(colours)=rev(levels(birth$deciles))
+ggplot(data=birth)+ geom_sf(aes(group=birth19, fill=factor(deciles)))+
+  scale_fill_manual(values=colours)+ theme_economist()+ theme_map()+
+  theme(legend.position=c(0.85,0.65))
+```
+
+```{r legend title blank and size adjusted}
+breaks=unique(quantile(birth$birth19, probs=seq(0,1, by=0.1)))
+birth$deciles=cut(birth$birth19, breaks=breaks, include.lowest = TRUE, include.highest = TRUE)
+colours=brewer.pal(name="RdYlGn", n=nlevels(birth$deciles))
+names(colours)=rev(levels(birth$deciles))
+ggplot(data=birth)+ geom_sf(aes(group=birth19, fill=factor(deciles)))+
+  scale_fill_manual(values=colours)+ theme_economist()+ theme_map()+
+  theme(legend.position=c(0.85,0.45))+ 
+  theme(legend.key.size = unit(0.2, "cm"),
+        legend.key.height = unit(0.2, "cm"),
+        legend.key.width = unit(0.5, "cm"))+
+  theme(legend.title = element_blank())
+```
+
+```{r WITH OOUT BOUNDARY LINE}
+breaks=unique(quantile(birth$birth19, probs=seq(0,1, by=0.1)))
+birth$deciles=cut(birth$birth19, breaks=breaks, include.lowest = TRUE, include.highest = TRUE)
+colours=brewer.pal(name="RdYlGn", n=nlevels(birth$deciles))
+names(colours)=rev(levels(birth$deciles))
+ggplot(data=birth)+ geom_sf(aes(group=birth19, fill=factor(deciles)), colour=NA)+
+  scale_fill_manual(values=colours)+ theme_economist()+ theme_map()+
+  theme(legend.position=c(0.85,0.45))+ 
+  theme(legend.key.size = unit(0.2, "cm"),
+        legend.key.height = unit(0.2, "cm"),
+        legend.key.width = unit(0.5, "cm"))+
+  theme(legend.title = element_blank())
+```
+
+```{r background with other layer}
+breaks=unique(quantile(birth$birth19, probs=seq(0,1, by=0.1)))
+birth$deciles=cut(birth$birth19, breaks=breaks, include.lowest = TRUE, include.highest = TRUE)
+colours=brewer.pal(name="RdYlGn", n=nlevels(birth$deciles))
+names(colours)=rev(levels(birth$deciles))
+ggplot()+ geom_sf(data=glob,colour=NA)+
+  geom_sf(data=birth,aes(group=birth19, fill=factor(deciles)), colour=NA)+
+  scale_fill_manual(values=colours)+ theme_economist()+ theme_map()+
+  theme(legend.position=c(0.85,0.45))+ 
+  theme(legend.key.size = unit(0.2, "cm"),
+        legend.key.height = unit(0.2, "cm"),
+        legend.key.width = unit(0.5, "cm"))+
+  theme(legend.title = element_blank())
+```
+
+
+```{r}
+prid <- read_excel("E:/ba/marriage/new/Rcomand for maariag and dat/new/pridict odds1.xls")
+```
+
+
+##  pridict odds rati after outlier 
+```{r copy and paste to rstan and the file name is predict.stan}
+# for working marriage replace birth19 by coh18 ... in this case analyse every country individually 
+data {
+  int N;
+   int birth19[N];
+  int year2[N];
+}
+parameters {
+  real alpha;
+  real beta;
+}
+model {
+  for(i in 1:N) {
+    birth19[i] ~ bernoulli_logit(alpha + beta*year2[i]);
+  }
+  alpha ~ normal(0,1);
+  beta ~ normal(0,1);
+}
+```
+
+```{r}
+# year as continuous and all dependent variables are binary outcome and each country analyse separately 
+#the following indicates for only India 
+marge_all <- read_dta("E:/ba/dt marr/bmanem/marriage/marriage/aa marge 15-19/All marge.rds")
+pred<-select(marge_all, birth15, birth19, coh15, coh18, ea, year, country, code, vo24, v000, reg_code, reg, n)
+
+
+pred$C_Y=paste(pred$country, pred$year)
+
+nn<-pred[!duplicated(pred[c('C_Y')]),]
+
+nn1<- aggregate(nn$country, by=list(nn$country), FUN=length)
+
+nn1<-subset(nn1, x>2)
+nn1<-rename(nn1, country=Group.1)
+
+library(data.table)
+pred2<-data.table(pred, key="country")[
+  data.table(nn1, key="country"),
+  allow.cartesian=TRUE
+]
+pred2$ea[pred2$ea==9]<-0
+table(pred2$country)
+count<- subset(pred2, country=="India")
+ea<- select(count, year, ea)
+ea<-na.omit(ea)
+table(ea$year)
+ea$year2<-ea$year
+ea$year2<-ea$year2-min(ea$year2)
+year2=select(ea, year2)
+table(ea$year2)
+table(ea$ea,ea$year2)
+ea=select(ea, ea)
+
+N1=nrow(ea)
+N1
+N=274144
+data1<-list(N=N,ea=ea$ea, year2=year2$year2)
+fit<-stan('predict.stan', iter=1000, chains=4, data=data1)
+print(fit, probs=0.5)
+```
+
+
+```{r predict  18/19  25025  2030  predict}
+# after geting the coficient and intercept with stan and r (using logit) can be predict the cofficient  y=a + bX
+prid <- read_excel("E:/ba/marriage/new/Rcomand for maariag and dat/new/pridict_odds1.xls")
+
+str(prid)
+prid$In_Bi19 =as.numeric(prid$In_Bi19)
+prid$odds_Bi19=as.numeric(prid$odds_Bi19)
+prid$l_Bi=as.numeric(prid$l_Bi)
+prid$U_Bi=as.numeric(prid$U_Bi)
+prid$In_ea=as.numeric(prid$In_ea)
+prid$Odds_ea=as.numeric(prid$Odds_ea)
+prid$L_ea=as.numeric(prid$L_ea)
+prid$U_ea=as.numeric(prid$U_ea)
+
+# predict the prevalence P=exp(B0 + B1x)/(1 + exp(B0 + B1x))
+
+prid$coh18_P25= exp(prid$C_a + prid$C_b*prid$pr2025)/(1 + exp(prid$C_a + prid$C_b*prid$pr2025))
+prid$coh18_P30= exp(prid$C_a + prid$C_b*prid$pr2030)/(1 + exp(prid$C_a + prid$C_b*prid$pr2030))
+prid$Bi19_P25= exp(prid$Bi_a + prid$Bi_b*prid$pr2025)/(1 + exp(prid$Bi_a + prid$Bi_b*prid$pr2025))
+prid$Bi19_P30= exp(prid$Bi_a + prid$Bi_b*prid$pr2030)/(1 + exp(prid$Bi_a + prid$Bi_b*prid$pr2030))
+prid$ea_P25=exp(prid$ea_a + prid$ea_b*prid$pr2025)/(1 + exp(prid$ea_a + prid$ea_b*prid$pr2025))
+prid$ea_P30=exp(prid$ea_a + prid$ea_b*prid$pr2030)/(1 + exp(prid$ea_a + prid$ea_b*prid$pr2030))
+
+prid$coh15_P25=exp(prid$coh15_int + prid$coh15_od*prid$Coh_Ydi25)/(1 + exp(prid$coh15_int + prid$coh15_od*prid$Coh_Ydi25))
+prid$coh15_P30=exp(prid$coh15_int + prid$coh15_od*prid$coh_Yidi30)/(1 + exp(prid$coh15_int + prid$coh15_od*prid$coh_Yidi30))
+prid$Bi16_P25=exp(prid$In_Bi15 + prid$odds_Bi15*prid$Bi_Ydi25)/(1 + exp(prid$In_Bi15 + prid$odds_Bi15*prid$Bi_Ydi25))
+prid$Bi16_P30=exp(prid$In_Bi15 + prid$odds_Bi15*prid$Bi_Yidi30)/(1 + exp(prid$In_Bi15 + prid$odds_Bi15*prid$Bi_Yidi30))
+
+prid$coh18_P25=prid$coh18_P25*100
+prid$coh18_P30=prid$coh18_P30*100
+prid$Bi19_P25=prid$Bi19_P25*100
+prid$Bi19_P30=prid$Bi19_P30*100
+prid$ea_P25=prid$ea_P25*100
+prid$ea_P30=prid$ea_P30*100
+prid$coh15_P25=prid$coh15_P25*100
+prid$coh15_P30=prid$coh15_P30*100
+prid$Bi16_P25=prid$Bi16_P25*100
+prid$Bi16_P30=prid$Bi16_P30*100
+```
+ 
+```{r}
+save_csv
+```
+ 
+  
+# outlier control
+
+## coh18 30
+
+
+
+```{r}
+boxplot(prid$coh18_P30, ylab="Prevalence")
+```
+ 
+```{r}
+boxplot(prid$coh18_P30,
+        border = "brown",
+        notch = TRUE,
+        horizontal = TRUE
+)
+```
+
+```{r list of outlier}
+outco18_30<-boxplot.stats(prid$coh18_P30)$out
+```
+
+```{r eval=FALSE, include=TRUE}
+outco18_30
+```
+
+```{r to now the minimum/maximum value of outliers}
+min(outco18_30)
+max(outco18_30)
+```
+
+```{r}
+q3_CO18 <- quantile(prid$coh18_P30, 0.75, na.rm=TRUE)
+iqr_CO18 <- IQR(prid$coh18_P30, na.rm=TRUE)
+up_CO18 <- q3_CO18 + 1.5*iqr_CO18 
+```
+
+
+```{r   threat the outlier}
+prid$coh18_P30[prid$coh18_P30>up_CO18 ]<-up_CO18 
+```
+
+```{r}
+boxplot(prid$coh18_P30,
+        border = "brown",
+        notch = TRUE,
+        horizontal = TRUE
+)
+```
+
+
+
+## coh18 25
+
+
+
+```{r}
+boxplot(prid$coh18_P25, ylab="Prevalence")
+```
+ 
+```{r}
+boxplot(prid$coh18_P25,
+        border = "brown",
+        notch = TRUE,
+        horizontal = TRUE
+)
+```
+
+```{r list of outlier}
+outco18_25<-boxplot.stats(prid$coh18_P25)$out
+```
+
+```{r eval=FALSE, include=TRUE}
+outco18_25
+```
+
+```{r to now the minimum/maximum value of outliers}
+min(outco18_25)
+max(outco18_25)
+```
+
+```{r}
+q3_CO18_25 <- quantile(prid$coh18_P25, 0.75, na.rm=TRUE)
+iqr_CO18_25 <- IQR(prid$coh18_P25, na.rm=TRUE)
+up_CO18_25 <- q3_CO18_25 + 1.5*iqr_CO18_25
+```
+
+
+```{r   threat the outlier}
+prid$coh18_P25[prid$coh18_P25>up_CO18_25]<-up_CO18_25
+```
+
+```{r}
+boxplot(prid$coh18_P25,
+        border = "brown",
+        notch = TRUE,
+        horizontal = TRUE
+)
+```
+
+
+# bi19  30
+
+
+```{r}
+boxplot(prid$Bi19_P30, ylab="Prevalence")
+```
+ 
+```{r}
+boxplot(prid$Bi19_P30,
+        border = "brown",
+        notch = TRUE,
+        horizontal = TRUE
+)
+```
+
+```{r list of outlier}
+outbi18_30<-boxplot.stats(prid$Bi19_P30)$out
+```
+
+```{r eval=FALSE, include=TRUE}
+outbi18_30
+```
+
+```{r to now the minimum/maximum value of outliers}
+min(outbi18_30)
+max(outbi18_30)
+```
+
+
+```{r}
+q3_BI18_30 <- quantile(prid$Bi19_P30, 0.75, na.rm=TRUE)
+iqr_BI_18_30 <- IQR(prid$Bi19_P30, na.rm=TRUE)
+up_BI18_30 <- q3_BI18_30+ 1.5*iqr_BI_18_30
+```
+
+
+
+```{r   threat the outlier}
+prid$Bi19_P30[prid$Bi19_P30>min(up_BI18_30)]<-min(up_BI18_30)
+```
+
+```{r}
+boxplot(prid$Bi19_P30,
+        border = "brown",
+        notch = TRUE,
+        horizontal = TRUE
+)
+```
+
+
+
+
+
+
+
+
+
+# bi19  25
+
+
+```{r}
+boxplot(prid$Bi19_P25, ylab="Prevalence")
+```
+ 
+```{r}
+boxplot(prid$Bi19_P25,
+        border = "brown",
+        notch = TRUE,
+        horizontal = TRUE
+)
+```
+
+```{r list of outlier}
+outbi18_25<-boxplot.stats(prid$Bi19_P25)$out
+```
+
+```{r eval=FALSE, include=TRUE}
+outbi18_25
+```
+
+```{r to now the minimum/maximum value of outliers}
+min(outbi18_25)
+max(outbi18_25)
+```
+
+```{r}
+q3_BI18_25 <- quantile(prid$Bi19_P25, 0.75, na.rm=TRUE)
+iqr_BI_18_25 <- IQR(prid$Bi19_P25, na.rm=TRUE)
+up_BI18_25 <- q3_BI18_30+ 1.5*iqr_BI_18_30
+```
+
+
+```{r   threat the outlier}
+prid$Bi19_P25[prid$Bi19_P25>up_BI18_25]<-up_BI18_25
+```
+
+```{r}
+boxplot(prid$Bi19_P25,
+        border = "brown",
+        notch = TRUE,
+        horizontal = TRUE
+)
+```
+
+
+
+
+# ea   30
+
+
+```{r}
+boxplot(prid$ea_P30, ylab="Prevalence")
+```
+ 
+```{r}
+boxplot(prid$ea_P30,
+        border = "brown",
+        notch = TRUE,
+        horizontal = TRUE
+)
+```
+
+```{r list of outlier}
+outea18_30<-boxplot.stats(prid$ea_P30)$out
+```
+
+```{r eval=FALSE, include=TRUE}
+outea18_30
+```
+
+```{r to now the minimum/maximum value of outliers}
+min(outea18_30)
+max(outea18_30)
+```
+
+```{r}
+q3_EA_30 <- quantile(prid$ea_P30, 0.75, na.rm=TRUE)
+iqr_EA_30 <- IQR(prid$ea_P30, na.rm=TRUE)
+up_EA_30 <- q3_EA_30+ 1.5*iqr_EA_30
+```
+
+
+```{r   threat the outlier}
+prid$ea_P30[prid$ea_P30>up_EA_30]<-up_EA_30
+```
+
+```{r}
+boxplot(prid$ea_P30,
+        border = "brown",
+        notch = TRUE,
+        horizontal = TRUE
+)
+```
+
+# ea   25
+
+
+```{r}
+boxplot(prid$ea_P25, ylab="Prevalence")
+```
+ 
+```{r}
+boxplot(prid$ea_P25,
+        border = "brown",
+        notch = TRUE,
+        horizontal = TRUE
+)
+```
+
+
+
+```{r list of outlier}
+outea18_25<-boxplot.stats(prid$ea_P25)$out
+```
+
+```{r eval=FALSE, include=TRUE}
+outea18_25
+```
+
+```{r to now the minimum/maximum value of outliers}
+min(outea18_25)
+max(outea18_25)
+```
+
+```{r}
+q3_EA_25 <- quantile(prid$ea_P25, 0.75, na.rm=TRUE)
+iqr_EA_25 <- IQR(prid$ea_P25, na.rm=TRUE)
+up_EA_25 <- q3_EA_25+ 1.5*iqr_EA_25
+```
+
+
+```{r   threat the outlier}
+prid$ea_P25[prid$ea_P25>up_EA_25]<-up_EA_25
+```
+
+```{r}
+boxplot(prid$ea_P25,
+        border = "brown",
+        notch = TRUE,
+        horizontal = TRUE
+)
+```
+
+
+
+
+```{r  prid  18/19}
+pre<-read.csv("E:/ba/marriage/new/Rcomand for maariag and dat/new/prid_odds.csv")
+
+library(ggplot2)
+library(ggpmisc)
+library(ggrepel)
+
+names(pre)
+
+predmr<-  ggplot(prid, aes(x=coh18_P25, y=coh18_P30), fill=Region) + geom_point(aes(col=Region))+
+  # geom_smooth(method='lm')+
+  geom_abline(method="lm", se=FALSE)+  #method = "loess", formula = y ~ x
+  #geom_abline(xy, aes(x, y)) +
+  stat_poly_eq(use_label(c("R2")), size=3)+
+  # scale_color_manual(values=c('green', 'black', 'red'))+
+  #guides(size= guide_legend(title = "None")) +
+  theme(legend.position=c("None"))+ 
+  # ggtitle("C")+
+  ylab("2030")+ xlab(" ")+ # xlim(0,3)+
+  #theme(legend.text=element_text("3% declined"))+ # xlim(0,50)+
+  #coord_cartesian(xlim = c(0,9), ylim = c(0,80), expand = FALSE)+
+  # theme(axis.text = element_text(face="bold"))+
+  theme_classic()+
+  ggtitle("A")+
+  theme(text=element_text(size=7))+ 
+  geom_text(x=9, y=75, label="5% increase", size=3)+
+  #geom_text(label=coun$ISO,  nudge_x=1.1, nudge_y=1.3, size=2, check_overlap=T)+
+  #scale_shape_discrete(name="Experimental\nCondition") +
+  theme(legend.position=c(10,10))+
+  scale_x_continuous(
+    breaks = c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100))+
+  scale_y_continuous(
+    breaks = c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100))+
+  theme(legend.position=c("None"))+ 
+  # scale_color_gradientn(colours = rainbow(5))+
+  geom_text_repel(aes(coh18_P25, coh18_P30, label =IOS), size=1.5)+
+  scale_color_manual(values=c('violet', 'blue', 'black', 'orange',  'cyan', 'red', "green")) 
+# geom_abline(slope=1, intercept=0)
+
+# scale_color_gradient2(low="red", mid="yellow", high="green")
+# facet_wrap(~Case1)+
+# theme(strip.text = element_text(
+#  size =7))
+#theme(legend.title=element_blank())
+
+predmr      ## The cofficent is -1.22 + 1.05x
+
+predbi<-ggplot(prid, aes(x=Bi19_P25, y=Bi19_P30), fill=Region) + geom_point(aes(fill=Region, col=Region))+
+  geom_abline(method='lm')+
+  stat_poly_eq(use_label(c("R2")), size=3)+     # stat_poly_eq(use_label(c("eq", "R2")), size=3)+
+  # scale_color_manual(values=c('green', 'black', 'red'))+
+  guides(size= guide_legend(title = "Standared error \n  of out of school")) +
+  # ggtitle("C")+
+  ylab("2030")+
+  #geom_vline(xintercept=1, linetype="dotted")+
+  xlab(" ")+ # xlim(0,3)+
+  theme(legend.text=element_text(size=7))+ # xlim(0,50)+
+  #coord_cartesian(xlim = c(0,9), ylim = c(0,80), expand = FALSE)+
+  # theme(axis.text = element_text(face="bold"))+
+  geom_text(x=13, y=63, label="13% \n increase", size=3)+
+  theme_classic()+
+  ggtitle("B")+
+  theme(text=element_text(size=7))+ 
+  #geom_text(label=coun$ISO,  nudge_x=1.1, nudge_y=1.3, size=2, check_overlap=T)+
+  #scale_shape_discrete(name="Experimental\nCondition") +
+  theme(legend.position=c(0.85,0.25))+
+  scale_x_continuous(
+    breaks = c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100))+
+  scale_y_continuous(
+    breaks = c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100))+
+  theme(legend.position=c("right"))+ 
+  theme(legend.key.size = unit(0.3, "cm"))+
+  # scale_color_gradientn(colours = rainbow(5))+
+  geom_text_repel(aes(Bi19_P25, Bi19_P30, label =IOS), size=1.5)+
+  scale_color_manual(values=c('violet', 'blue', 'black', 'orange',  'cyan', 'red', "green"))
+# theme_classic()
+# scale_color_gradient2(low="red", mid="yellow", high="green")
+# facet_wrap(~Case1)+
+# theme(strip.text = element_text(
+#  size =7))
+#theme(legend.title=element_blank())
+
+predbi    #     -2.1 + 1.13x
+predea<-ggplot(prid, aes(x=ea_P25, y=ea_P30), fill=Region) + geom_point(aes(fill=Region, col=Region))+
+  geom_abline(method='lm')+
+  stat_poly_eq(use_label(c("R2")), size=3)+
+  # scale_color_manual(values=c('green', 'black', 'red'))+
+  guides(size= guide_legend(title = "Standared error \n  of out of school")) +
+  # ggtitle("C")+
+  ylab("2030")+
+  #geom_vline(xintercept=1, linetype="dotted")+
+  xlab("2025")+ # xlim(0,3)+
+  theme(legend.text=element_text(size=7))+ # xlim(0,50)+
+  #coord_cartesian(xlim = c(0,9), ylim = c(0,80), expand = FALSE)+
+  # theme(axis.text = element_text(face="bold"))+
+  geom_text(x=11, y=87, label="10% increase", size=3)+
+  theme_classic()+
+  ggtitle("C")+
+  theme(text=element_text(size=7))+ 
+  #geom_text(label=coun$ISO,  nudge_x=1.1, nudge_y=1.3, size=2, check_overlap=T)+
+  #scale_shape_discrete(name="Experimental\nCondition") +
+  theme(legend.position=c(0.9,0.2))+
+  scale_x_continuous(
+    breaks = c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100))+
+  scale_y_continuous(
+    breaks = c(0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100))+
+  theme(legend.position=c("None"))+ 
+  theme(legend.key.size = unit(1, "cm"))+
+  # scale_color_gradientn(colours = rainbow(5))+
+  geom_text_repel(aes(ea_P25, ea_P30, label =IOS), size=1.5)+
+  scale_color_manual(values=c('violet', 'blue', 'black', 'orange',  'cyan', 'red', "green"))
+# theme_classic()
+# scale_color_gradient2(low="red", mid="yellow", high="green")
+# facet_wrap(~Case1)+
+# theme(strip.text = element_text(
+#  size =7))
+#theme(legend.title=element_blank())
+predea  #     -1.48 + 1.1x
+#plot_grid(predmr, predbi, predea, ncol = 1, nrow = 3)
+library(gridExtra)
+grid.arrange(predmr, predbi, predea, ncol = 1, nrow = 3)
+```
+
+
+
+
+
+
+#  plot the graph of in the prevalence all in one included in the suplimantary material 
+
+```{r}
+allinone$L_diff=allinone$median_ea-allinone$lower_ea
+allinone$U_diff=allinone$uper_ea-allinone$median_ea
+allinone$xy_U=allinone$U_diff/sqrt(2)
+allinone$xy_L=allinone$L_diff/sqrt(2)
+allinone$y_upp=allinone$median_b19+ allinone$xy_U
+allinone$x_upp=allinone$median_c18+ allinone$xy_U
+allinone$y_low=allinone$median_b19- allinone$xy_L
+allinone$x_low=allinone$median_c18- allinone$xy_L
+```
+
+```{r all in one final}
+
+
+allinone<-read.csv("D:/marriage/marriage/new/Rcomand for maariag and dat/new/allinine.csv")
+
+library(ggrepel)
+
+allinone$L_diff=allinone$median_ea-allinone$lower_ea
+allinone$U_diff=allinone$uper_ea-allinone$median_ea
+allinone$xy_U=allinone$U_diff/sqrt(2)
+allinone$xy_L=allinone$L_diff/sqrt(2)
+allinone$y_upp=allinone$median_b19+ allinone$xy_U
+allinone$x_upp=allinone$median_c18+ allinone$xy_U
+allinone$y_low=allinone$median_b19- allinone$xy_L
+allinone$x_low=allinone$median_c18- allinone$xy_L
+
+allinone$median_ea<-as.numeric(allinone$median_ea)
+
+allinone$median_edu<- cut(allinone$median_ea, 
+                         breaks=c(0, 20, 40, 60, 100),
+                     labels=c('[0,20)', '[20,40)', '[40,60)', '>=60'))
+
+allinone$median_edu<- cut(allinone$median_ea, 
+                          breaks=c(0, 20, 40, 60, 100),
+                          labels=c('[0,20)', '[20,40)', '[40,60)', '>=60'))
+
+str(allinone$median_ea)
+
+
+scale_size_discrete(labels=c("[0,20)", "[20,40)", "[40,60)", ">=60"))
+
+names(allinone)
+aa<-select(allinone, Country, Region,  median_b19, median_c18, median_edu, median_ea)
+aa<-na.omit(aa)
+table(allinone$median_edu)
+
+all<-ggplot(allinone, aes(y=median_b19, x=median_c18)) + 
+  geom_point(data=aa, aes(size=median_edu,  col=Region))+
+  guides(size= guide_legend(title = "Prevalence of\n  out of school")) +#geom_point(data=aa, aes(size=median_edu,  col=Region))+
+  # scale_color_manual(values=c('green', 'black', 'red'))+
+  #scale_size_manual(values = c("NA"=0, "[0,20)"=2, "[20,40)"=3, "[40,60)"=4, ">=60"=5))+
+  #geom_point( aes(size=median_edu, color=Region, na.rm=TRUE))+
+ # scale_size_manual(values = c("[0,20)"=2, "[20,40)"=3, "[40,60)"=4, ">=60"=5))+
+  geom_errorbar(aes(ymin=lower_b19, ymax=uper_b19), width=.2, col="red") +
+  geom_errorbar(aes(xmin=lower_c18, xmax=uper_c18), width=.2, col="green")+
+  geom_segment(aes(x = median_c18, y = median_b19, xend = x_upp, yend = y_upp), size=0.5, color="black",  data = allinone)+
+  geom_segment(aes(x = x_low, y = y_low, xend =median_c18, yend =median_b19), size=0.5, color="black", data = allinone)+
+  #geom_point(data=aa, aes(size=median_edu,  col=Region))+
+  #guides(size= guide_legend(title = "Prevalence of\n  out of school")) +
+  # ggtitle("C")+
+  xlab("Prevalence of married under 18 y with 95% CrI")+
+  #geom_vline(xintercept=1, linetype="dotted")+
+  ylab("Prevalence of birth under 19 y with 95% CrI")+ # xlim(0,3)+
+  theme(legend.text=element_text(size=7))+ # xlim(0,50)+
+  #scale_size_manual(values=c(2,3,4,5,6))+
+  #coord_cartesian(xlim = c(0,9), ylim = c(0,80), expand = FALSE)+
+  # theme(axis.text = element_text(face="bold"))+
+  theme_classic()+
+  theme(text=element_text(size=7))+ 
+  #geom_text(label=coun$ISO,  nudge_x=1.1, nudge_y=1.3, size=2, check_overlap=T)+
+  #scale_shape_discrete(name="Experimental\nCondition") +
+  theme(legend.position=c(0.85,0.152))+ theme(legend.box = 'horizontal')+
+  #theme(legend.spacing.y = unit(0.5, 'cm'))+
+  theme(legend.key.size = unit(0.3, "cm"))+
+  scale_x_continuous(breaks = c(0,5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80,855, 90))+
+  scale_y_continuous(breaks = c(0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50))+
+  # scale_color_gradientn(colours = rainbow(5))+
+  geom_text_repel(aes(median_c18, median_b19,  label =ISO), size=2)+
+  scale_color_manual(values=c('violet', 'blue', 'black', 'orange',  'cyan', 'red'))
+# theme(legend.spacing.y = unit(0.1, 'cm'))
+# scale_color_gradient2(low="red", mid="yellow", high="green")
+# facet_wrap(~Case1)+
+# theme(strip.text = element_text(
+#  size =7))
+#theme(legend.title=element_blank())
+#scale_size_manual(values = c("NA"=1, "[0,20)"=2, "[20,40)"=3, "[40,60)"=4, ">=60"=5))
+all
+```
+
+
+
+
+# plot signal to noisy ration included in the suplmantary
+
+```{r}
+pre<-read_csv("D:/preva_noiPridic.csv")
+pre<-read_csv("D:/preva_noiPridic.csv")
+pre<-read.csv("D:/marriage/marriage/new/Rcomand for maariag and dat/new/country_pre1.csv")
+
+name
+
+names(pre)
+pre$noisb19[pre$noisb19>60]<-60
+pre$noisC18[pre$noisC18>65]<-65
+pre$noisEA[pre$noisEA>75]<-75
+
+marr18<-select(pre, Country, lower_c18, uper_c18, median_c18, noisC18, sec18, noisC18, Source)
+marr18<-na.omit(marr18)
+library(ggplot2)
+names(marr18)
+
+
+coh<-ggplot(marr18, aes(y=noisC18, x=reorder(Country, noisC18)))+
+  geom_segment(aes(x =Country, xend = Country, y = 0, yend = noisC18), col="green")+
+    geom_point(size =2 , pch =21, bg =2, col = 1)+
+  scale_y_continuous(breaks = c(0, 10, 20, 30, 40, 50, 60, 70))+
+  xlab("")+ ylab("")+
+  ggtitle("A")+
+  theme_classic()+
+  theme(text=element_text(size=7))+
+  # theme(legend.position=c(0.8, 0.0651))+
+  theme(axis.text = element_text(face="bold"))+
+  # theme(legend.key.size = unit(0.4, "cm"),
+        # legend.key.height = unit(0.3, "cm"),
+        # legend.key.width = unit(0.5, "cm"))+
+  coord_flip()
+coh
+
+
+bir19<-select(pre, Country, lower_b19, uper_b19, median_b19, noisC18, noisb19, seb19, Source)
+marr18<-na.omit(marr18)
+names(pre)
+bir<-ggplot(marr18, aes(y=noisC18, x=reorder(Country, noisC18)))+
+  geom_segment(aes(x =Country, xend = Country, y = 0, yend = noisC18), col="green")+
+  geom_point(size =2 , pch =21, bg =2, col = 1)+
+  scale_y_continuous(breaks = c(0, 10, 20, 30, 40, 50, 60, 70))+
+  xlab("")+ ylab("Signal-to-Noise Ratio")+
+  ggtitle("B")+
+  theme_classic()+
+  theme(text=element_text(size=7))+
+  # theme(legend.position=c(0.8, 0.0651))+
+  theme(axis.text = element_text(face="bold"))+
+  # theme(legend.key.size = unit(0.4, "cm"),
+  # legend.key.height = unit(0.3, "cm"),
+  # legend.key.width = unit(0.5, "cm"))+
+  coord_flip()
+
+bir
+
+
+names(pre)
+
+edu<-select(pre, Country, lower_ea, uper_ea, median_ea, noisC18, noisb19, noisEA, seea, Source)
+edu<-na.omit(edu)
+names(pre)
+ea<-ggplot(edu, aes(y=noisEA, x=reorder(Country, noisEA)))+
+  geom_segment(aes(x =Country, xend = Country, y = 0, yend = noisEA), col="green")+
+  geom_point(size =2 , pch =21, bg =2, col = 1)+
+  scale_y_continuous(breaks = c(0, 10, 20, 30, 40, 50, 60, 70))+
+  xlab("")+ ylab("")+
+  ggtitle("C")+
+  theme_classic()+
+  theme(text=element_text(size=7))+
+  # theme(legend.position=c(0.8, 0.0651))+
+  theme(axis.text = element_text(face="bold"))+
+  # theme(legend.key.size = unit(0.4, "cm"),
+  # legend.key.height = unit(0.3, "cm"),
+  # legend.key.width = unit(0.5, "cm"))+
+  coord_flip()
+
+ea
+
+
+library("gridExtra")
+# plot_grid(sp, bp, labels=c("A", "B"), ncol = 2, nrow = 1)
+grid.arrange(coh, bir, ea, ncol = 3)
+```
+
+
